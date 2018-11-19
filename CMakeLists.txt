@@ -230,6 +230,17 @@ endif()
 option(UA_ENABLE_JSON_ENCODING "Enable Json encoding (EXPERIMENTAL)" OFF)
 mark_as_advanced(UA_ENABLE_JSON_ENCODING)
 
+option(UA_ENABLE_DA "Enable server to provide DA information model and datatypes." ON)
+mark_as_advanced(UA_ENABLE_DA)
+option(UA_ENABLE_DA_INFORMATIONMODEL "Enable DA information model" ON)
+mark_as_advanced(UA_ENABLE_DA_INFORMATIONMODEL)
+if(UA_ENABLE_DA_INFORMATIONMODEL)
+    if(NOT UA_ENABLE_DA)
+    message(FATAL_ERROR "DA information model representation cannot be used with disabled DA function.")
+    endif()
+endif()
+
+
 option(UA_ENABLE_STATUSCODE_DESCRIPTIONS "Enable conversion of StatusCode to human-readable error message" ON)
 mark_as_advanced(UA_ENABLE_STATUSCODE_DESCRIPTIONS)
 
@@ -747,6 +758,12 @@ endif()
 # Generate source files #
 #########################
 
+# Part 8 Data Access Engineering Unit UnitIDs	
+if(UA_ENABLE_DA)							
+	add_custom_target(run_xml_and_csv ALL
+				COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/csv_parser.py ${CMAKE_CURRENT_SOURCE_DIR})												
+endif()
+
 if(UA_NAMESPACE_ZERO STREQUAL "FULL")
     if(NOT UA_FILE_NS0)
         set(UA_FILE_NS0 ${PROJECT_SOURCE_DIR}/deps/ua-nodeset/Schema/Opc.Ua.NodeSet2.xml)
@@ -792,6 +809,9 @@ else()
     endif()
 	if(UA_ENABLE_DA)
 		list(APPEND UA_FILE_DATATYPES ${PROJECT_SOURCE_DIR}/tools/schema/datatypes_dataaccess.txt)
+		if(UA_ENABLE_DA_INFORMATIONMODEL)
+			set(UA_FILE_NSDA ${PROJECT_SOURCE_DIR}/tools/schema/Opc.Ua.NodeSet2.Part8_Subset.xml)
+        endif()
     endif()
 endif()
 
@@ -877,7 +897,7 @@ endif()
 
 ua_generate_nodeset(
     NAME "ns0"
-    FILE "${UA_FILE_NS0}" "${UA_FILE_NSPUBSUB}"
+    FILE "${UA_FILE_NS0}" "${UA_FILE_NSPUBSUB}" "${UA_FILE_NSDA}"
     INTERNAL
     IGNORE "${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/NodeID_NS0_Base.txt"
     ENCODE_BINARY_SIZE ${UA_NODESET_ENCODE_BINARY_SIZE}

@@ -243,7 +243,8 @@ addDefaultNetworkLayers(UA_ServerConfig *conf, UA_UInt16 portNumber, UA_UInt32 s
         config.recvBufferSize = recvBufferSize;
 
     conf->networkLayers[0] =
-        UA_ServerNetworkLayerTCP(config, portNumber, &conf->logger);
+		UA_ServerNetworkLayerTCP(config, portNumber, &conf->logger);
+
     if (!conf->networkLayers[0].handle)
         return UA_STATUSCODE_BADOUTOFMEMORY;
     conf->networkLayersSize = 1;

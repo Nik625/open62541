@@ -93,6 +93,10 @@ if(UA_ENABLE_SUBSCRIPTIONS_EVENTS)
     add_example(tutorial_server_events tutorial_server_events.c)
 endif()
 
+if(UA_ENABLE_DA)
+  add_example(tutorial_dataaccess tutorial_server_dataaccess.c)
+endif()
+
 ##################
 # Example Server #
 ##################
