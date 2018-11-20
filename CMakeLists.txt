@@ -758,12 +758,6 @@ endif()
 # Generate source files #
 #########################
 
-# Part 8 Data Access Engineering Unit UnitIDs	
-if(UA_ENABLE_DA)							
-	add_custom_target(run_xml_and_csv ALL
-				COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/csv_parser.py ${CMAKE_CURRENT_SOURCE_DIR})												
-endif()
-
 if(UA_NAMESPACE_ZERO STREQUAL "FULL")
     if(NOT UA_FILE_NS0)
         set(UA_FILE_NS0 ${PROJECT_SOURCE_DIR}/deps/ua-nodeset/Schema/Opc.Ua.NodeSet2.xml)

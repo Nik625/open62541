@@ -27,6 +27,14 @@
 #include <open62541/plugin/historydatabase.h>
 #endif
 
+#ifdef UA_ENABLE_DA
+#include <stdio.h>
+#include <stdlib.h>
+#ifdef _WIN32
+#define snprintf _snprintf
+#endif
+#define SEMANTICS_CHANGED 0x4000
+#endif
 /******************/
 /* Access Control */
 /******************/
@@ -1183,13 +1191,13 @@ enqueueDataChangedNotification(UA_Server *server, UA_VariableNode *node, UA_Sess
                 const UA_VariableNode* fNode = (const UA_VariableNode*) UA_Nodestore_get(server, &node->nodeId);
                 newNotification->data.value.hasValue = true;
                 newNotification->mon = mon;
-                retval = UA_DataValue_copy(&(fNode->value.data.value), &newNotification->data.value);
+                UA_DataValue_copy(&(fNode->value.data.value), &newNotification->data.value);
                 newNotification->data.value.hasStatus = true;
                 newNotification->data.value.status = UA_STATUSCODE_GOOD;
                 UA_Nodestore_release(server, (const UA_Node*)fNode);
                 /* Enqueue the new notification */
                 UA_Notification_enqueue(server, sub, mon, newNotification);
-			         	return UA_STATUSCODE_GOOD;
+                return UA_STATUSCODE_GOOD;
             }
         }
     }
@@ -1206,13 +1214,13 @@ writeValueDataAccess(UA_Server *server, UA_Session *session,
     if(node->value.data.value.value.type == &UA_TYPES[UA_TYPES_FLOAT]) {
         UA_Float* d = (UA_Float*)node->value.data.value.value.data;
         if(*d != *d){
-            retval = enqueueDataChangedNotification(server, node, session);
+            enqueueDataChangedNotification(server, node, session);
         }
     }
     else if(node->value.data.value.value.type == &UA_TYPES[UA_TYPES_DOUBLE]) {
         UA_Double* d = (UA_Double*)node->value.data.value.value.data;
         if(*d != *d){
-            retval = enqueueDataChangedNotification(server, node, session);
+            enqueueDataChangedNotification(server, node, session);
         }
     }
     UA_BrowsePathResult bpr;
@@ -1226,8 +1234,8 @@ writeValueDataAccess(UA_Server *server, UA_Session *session,
             UA_Range* euRange = (UA_Range*) tVar.data;
             retval = UA_Variant_checkRange(&(value->value), euRange);
             if(retval == UA_STATUSCODE_GOOD) {
-                retval = writeValueAttributeWithoutRange(node, &adjustedValue);
-                retval = enqueueSemanticChangedNotification(server, node, session, UA_STATUSCODE_GOOD| 0x4000);
+                writeValueAttributeWithoutRange(node, &adjustedValue);
+                enqueueSemanticChangedNotification(server, node, session, UA_STATUSCODE_GOOD| SEMANTICS_CHANGED);
             }
         }
     UA_BrowsePathResult_deleteMembers(&bpr);
@@ -1243,8 +1251,8 @@ writeValueDataAccess(UA_Server *server, UA_Session *session,
             UA_Range* instrumentRange = (UA_Range*) tVar.data;
             retval = UA_Variant_checkRange(&(value->value), instrumentRange);
             if(retval == UA_STATUSCODE_GOOD) {
-                retval = writeValueAttributeWithoutRange(node, &adjustedValue);
-                retval = enqueueSemanticChangedNotification(server, node, session, UA_STATUSCODE_GOOD | 0x4000);
+                writeValueAttributeWithoutRange(node, &adjustedValue);
+                enqueueSemanticChangedNotification(server, node, session, UA_STATUSCODE_GOOD | SEMANTICS_CHANGED);
             }
         }
         UA_BrowsePathResult_deleteMembers(&bpr);
@@ -1261,16 +1269,18 @@ writeValueDataAccess(UA_Server *server, UA_Session *session,
             if(value->value.type == &UA_TYPES[UA_TYPES_FLOAT]) {
                 UA_Float* val = (UA_Float*)(value->value.data);
                 char result[40] = ""; //largest exponent +2
-                retval = snprintf(result, 40, "%.*f", (UA_Int32)(*valuePrec), *val);
-                char *end;
-                *val = strtof(result, &end);
+                snprintf(result, 40, "%.*f", (UA_Int32)(*valuePrec), *val);
+                //char *end;
+                //*val = strtof(result, &end);
+                *val = (UA_Float)atof(result);
             }
             else if(value->value.type == &UA_TYPES[UA_TYPES_DOUBLE]) {
                 UA_Double* val = (UA_Double*)(value->value.data);
                 char result[310] = ""; //largest exponent +2
-                retval = snprintf(result, 310, "%.*lf", (UA_Int32)(*valuePrec), *val);
-                char *end = "";
-                *val = strtod(result, &end);
+                snprintf(result, 310, "%.*lf", (UA_Int32)(*valuePrec), *val);
+                //char *end = "";
+                //*val = strtof(result, &end);
+                *val = atof(result);
             }
             else if(value->value.type == &UA_TYPES[UA_TYPES_DATETIME]) {
                 /* The behaviour differs based on the data type and thus the interpretation of the ValuePrecision.
@@ -1294,7 +1304,7 @@ writeValueDataAccess(UA_Server *server, UA_Session *session,
     }
     retval = writeValueAttributeWithoutRange(node, &adjustedValue);
 
-    UA_QualifiedName qnArray[] = {UA_QUALIFIEDNAME(0, "EngineeringUnits"), UA_QUALIFIEDNAME(0, "TrueState"), UA_QUALIFIEDNAME(0, "FalseState"),
+    UA_QualifiedName qnArray[12] = {UA_QUALIFIEDNAME(0, "EngineeringUnits"), UA_QUALIFIEDNAME(0, "TrueState"), UA_QUALIFIEDNAME(0, "FalseState"),
                                   UA_QUALIFIEDNAME(0, "EnumStrings"), UA_QUALIFIEDNAME(0, "AxisDefinition"), UA_QUALIFIEDNAME(0, "XAxisDefinition"),
                                   UA_QUALIFIEDNAME(0, "YAxisDefinition"), UA_QUALIFIEDNAME(0, "ZAxisDefinition"), UA_QUALIFIEDNAME(0, "Title"),
                                   UA_QUALIFIEDNAME(0, "AxisScaleType"),
@@ -1302,7 +1312,7 @@ writeValueDataAccess(UA_Server *server, UA_Session *session,
                                   UA_QUALIFIEDNAME(0, "EURange"), UA_QUALIFIEDNAME(0, "InstrumentRange")};
     for(UA_UInt32 i = 0; i < sizeof(qnArray)/sizeof(qnArray[0]); i++) {
         if(true == UA_QualifiedName_equal(&node->browseName, &qnArray[i])) {
-            retval = enqueueSemanticChangedNotification(server, node, session, (UA_STATUSCODE_GOOD | 0x4000));
+            retval = enqueueSemanticChangedNotification(server, node, session, (UA_STATUSCODE_GOOD | SEMANTICS_CHANGED));
             return retval;
         }
     }

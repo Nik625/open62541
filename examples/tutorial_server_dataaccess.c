@@ -9,7 +9,7 @@
 #include <signal.h>
 #include "ua_server_dataaccess.h"
 
-UA_Boolean running = true;
+static UA_Boolean running = true;
 static void stopHandler(int sig) {
     running = false;
 }
@@ -82,7 +82,8 @@ main(void) {
     UA_Server *server = UA_Server_new(config);
 
     retval |= addDataAccessNode(server);
-    retval |= UA_Server_run(server, &running);
+    if(UA_STATUSCODE_GOOD == retval)
+        retval |= UA_Server_run(server, &running);
 
     UA_Server_delete(server);
     UA_ServerConfig_delete(config);
