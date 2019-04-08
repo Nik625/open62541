@@ -227,6 +227,18 @@ if(UA_ENABLE_PUBSUB_INFORMATIONMODEL)
     if(NOT UA_ENABLE_PUBSUB)
         message(FATAL_ERROR "PubSub information model representation cannot be used with disabled PubSub function.")
     endif()
+    if(UA_NAMESPACE_ZERO STREQUAL "MINIMAL")
+        message(FATAL_ERROR "PubSub information model representation cannot be used with MINIMAL namespace zero.")
+    endif()
+endif()
+
+option(UA_ENABLE_PUBSUB_CUSTOM_PUBLISH_HANDLING
+       "Use a custom implementation for the publish callback handling" OFF)
+mark_as_advanced(UA_ENABLE_PUBSUB_CUSTOM_PUBLISH_HANDLING)
+if(UA_ENABLE_PUBSUB_CUSTOM_PUBLISH_INTERRUPT)
+    if(NOT UA_ENABLE_PUBSUB)
+        message(FATAL_ERROR "Custom publish callback handling cannot be used with PubSub function disabled")
+    endif()
 endif()
 
 option(UA_ENABLE_JSON_ENCODING "Enable Json encoding (EXPERIMENTAL)" OFF)
@@ -263,6 +275,15 @@ mark_as_advanced(UA_ENABLE_NODESET_COMPILER_DESCRIPTIONS)
 
 option(UA_ENABLE_DETERMINISTIC_RNG "Do not seed the random number generator (e.g. for unit tests)." OFF)
 mark_as_advanced(UA_ENABLE_DETERMINISTIC_RNG)
+
+option(UA_ENABLE_MALLOC_SINGLETON
+       "Use a global variable pointer for malloc (and free, ...) that can be switched at runtime" OFF)
+mark_as_advanced(UA_ENABLE_MALLOC_SINGLETON)
+if(UA_ENABLE_MALLOC_SINGLETON)
+    if(NOT "${UA_ARCHITECTURE}" MATCHES "posix")
+        message(FATAL_ERROR "The singleton malloc is available only for the posix architecture")
+    endif()
+endif()
 
 option(UA_ENABLE_VALGRIND_INTERACTIVE "Enable dumping valgrind every iteration. CAUTION! SLOWDOWN!" OFF)
 mark_as_advanced(UA_ENABLE_VALGRIND_INTERACTIVE)
@@ -939,6 +960,7 @@ assign_source_group(${ua_architecture_sources})
 if(UA_ENABLE_AMALGAMATION)
     add_library(open62541-object OBJECT ${PROJECT_BINARY_DIR}/open62541.c ${PROJECT_BINARY_DIR}/open62541.h)
     target_include_directories(open62541-object PRIVATE ${PROJECT_BINARY_DIR})
+    target_include_directories(open62541-object PRIVATE "${ua_architecture_directories_to_include}")
     if(UA_ENABLE_ENCRYPTION)
         target_include_directories(open62541-object PRIVATE ${MBEDTLS_INCLUDE_DIRS})
     endif()
@@ -1106,8 +1128,6 @@ include(linting_target)
 # Enable shared library with `-DBUILD_SHARED_LIBS=ON`
 
 set(cmake_configfile_install ${LIB_INSTALL_DIR}/cmake/open62541)
-set(target_install_dest_name "${cmake_configfile_install}/open62541Targets.cmake")
-set(macros_install_dest_name "${cmake_configfile_install}/open62541Macros.cmake")
 set(open62541_install_tools_dir share/open62541/tools)
 set(open62541_install_nodeset_dir share/open62541/tools/ua-nodeset)
 
@@ -1174,11 +1194,9 @@ endif()
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake/open62541Config.cmake.in"
-                              "${CMAKE_CURRENT_BINARY_DIR}/cmake/open62541Config.cmake"
+                              "${CMAKE_CURRENT_BINARY_DIR}/open62541Config.cmake"
                               INSTALL_DESTINATION "${cmake_configfile_install}"
-                              PATH_VARS target_install_dest_name
-                                        macros_install_dest_name
-                                        open62541_install_tools_dir
+                              PATH_VARS open62541_install_tools_dir
                                         open62541_install_nodeset_dir
                                         open62541_enabled_components
                               )
@@ -1195,15 +1213,18 @@ install(EXPORT open62541Targets
         DESTINATION "${cmake_configfile_install}"
         NAMESPACE open62541::)
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cmake/open62541Config.cmake"
+export(
+    TARGETS open62541
+    NAMESPACE open62541::
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/open62541Targets.cmake
+)
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake/macros_public.cmake" "${CMAKE_CURRENT_BINARY_DIR}/open62541Macros.cmake" COPYONLY)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/open62541Config.cmake"
               "${CMAKE_CURRENT_BINARY_DIR}/open62541ConfigVersion.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/open62541Macros.cmake"
         DESTINATION "${cmake_configfile_install}")
-
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake/macros_public.cmake"
-        DESTINATION "${cmake_configfile_install}"
-        RENAME "open62541Macros.cmake"
-        )
-
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     install(FILES "${PROJECT_BINARY_DIR}/src_generated/open62541.pc"

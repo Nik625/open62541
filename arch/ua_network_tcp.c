@@ -144,9 +144,11 @@ connection_recv(UA_Connection *connection, UA_ByteString *response,
     }
 
     /* Preprend the last incompleteChunk into the buffer */
-    memcpy(response->data, connection->incompleteChunk.data,
-           connection->incompleteChunk.length);
-    UA_ByteString_deleteMembers(&connection->incompleteChunk);
+    if (connection->incompleteChunk.length > 0) {
+        memcpy(response->data, connection->incompleteChunk.data,
+               connection->incompleteChunk.length);
+        UA_ByteString_deleteMembers(&connection->incompleteChunk);
+    }
 
     /* Set the length of the received buffer */
     response->length = offset + (size_t)ret;
@@ -411,7 +413,7 @@ ServerNetworkLayerTCP_listen(UA_ServerNetworkLayer *nl, UA_Server *server,
     struct timeval tmptv = {0, timeout * 1000};
     if (UA_select(highestfd+1, &fdset, NULL, &errset, &tmptv) < 0) {
         UA_LOG_SOCKET_ERRNO_WRAP(
-            UA_LOG_WARNING(layer->logger, UA_LOGCATEGORY_NETWORK,
+            UA_LOG_DEBUG(layer->logger, UA_LOGCATEGORY_NETWORK,
                            "Socket select failed with %s", errno_str));
         // we will retry, so do not return bad
         return UA_STATUSCODE_GOOD;
