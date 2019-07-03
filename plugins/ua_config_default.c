@@ -8,6 +8,7 @@
  *    Copyright 2017 (c) Thomas Stalder, Blue Time Concept SA
  *    Copyright 2018 (c) Daniel Feist, Precitec GmbH & Co. KG
  *    Copyright 2018 (c) Fabian Arndt, Root-Core
+ *
  */
 
 #include <open62541/client_config_default.h>
